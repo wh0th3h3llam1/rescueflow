@@ -1,0 +1,102 @@
+openapi: 3.1.0
+info:
+  title: RescueFlow API
+  version: 0.1.0
+  description: Synthetic emergency workflow API. Not for real medical or emergency use.
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/v1/incidents:
+    post:
+      summary: Create and start dispatch for an incident
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+        - {$ref: '#/components/parameters/CorrelationID'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateIncident'}
+            example: {incident_type: medical, severity: 4, latitude: 47.6062, longitude: -122.3321, description: Synthetic drill}
+      responses:
+        '201': {description: Created, content: {application/json: {schema: {$ref: '#/components/schemas/Incident'}}}}
+        '200': {description: Existing idempotent result, content: {application/json: {schema: {$ref: '#/components/schemas/Incident'}}}}
+        '422': {$ref: '#/components/responses/Error'}
+    get:
+      summary: List incidents
+      parameters:
+        - {name: status, in: query, schema: {$ref: '#/components/schemas/Status'}}
+        - {name: severity, in: query, schema: {type: integer, minimum: 1, maximum: 5}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+      responses:
+        '200': {description: Page of incidents}
+  /api/v1/incidents/{id}:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get:
+      summary: Get an incident
+      responses:
+        '200': {description: Incident, content: {application/json: {schema: {$ref: '#/components/schemas/Incident'}}}}
+        '404': {$ref: '#/components/responses/Error'}
+  /api/v1/incidents/{id}/status:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    patch:
+      summary: Apply a legal status transition
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [status], properties: {status: {$ref: '#/components/schemas/Status'}, reason: {type: string}}}}}
+      responses:
+        '200': {description: Updated incident}
+        '409': {$ref: '#/components/responses/Error'}
+  /api/v1/incidents/{id}/timeline:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get: {summary: Get immutable status history, responses: {'200': {description: Timeline}}}
+  /api/v1/incidents/{id}/events:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get: {summary: Get observed event envelopes, responses: {'200': {description: Event history}}}
+  /api/v1/incidents/{id}/reject-assignment:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    post: {summary: Simulate rejection and compensation, responses: {'200': {description: Reassigned incident}, '409': {$ref: '#/components/responses/Error'}}}
+  /api/v1/ws/incidents/{id}:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get: {summary: Upgrade to a one-way incident WebSocket, responses: {'101': {description: Switching Protocols}}}
+  /api/v1/responders:
+    get: {summary: List responders, responses: {'200': {description: Responders}}}
+  /api/v1/responders/{id}/availability:
+    patch: {summary: Set responder availability, parameters: [{$ref: '#/components/parameters/ID'}], responses: {'200': {description: Updated responder}}}
+  /api/v1/responders/{id}/location:
+    patch: {summary: Update responder location, parameters: [{$ref: '#/components/parameters/ID'}], responses: {'200': {description: Updated responder}}}
+  /api/v1/resources:
+    get: {summary: List resources, responses: {'200': {description: Resources}}}
+  /api/v1/resources/{id}/reserve:
+    post: {summary: Reserve with expected version, parameters: [{$ref: '#/components/parameters/ID'}], responses: {'200': {description: Reserved}, '409': {$ref: '#/components/responses/Error'}}}
+  /api/v1/resources/{id}/release:
+    post: {summary: Release a reservation, parameters: [{$ref: '#/components/parameters/ID'}], responses: {'200': {description: Released}, '409': {$ref: '#/components/responses/Error'}}}
+  /api/v1/health/services:
+    get: {summary: Get service health and reliability counters, responses: {'200': {description: Health summary}}}
+components:
+  parameters:
+    ID: {name: id, in: path, required: true, schema: {type: string}}
+    CorrelationID: {name: X-Correlation-ID, in: header, required: false, schema: {type: string, format: uuid}}
+  schemas:
+    Status: {type: string, enum: [CREATED, VALIDATED, ASSIGNMENT_PENDING, ASSIGNED, IN_PROGRESS, RESOLVED, UNASSIGNED, CANCELLED]}
+    CreateIncident:
+      type: object
+      required: [incident_type, severity, latitude, longitude, description]
+      properties:
+        incident_type: {type: string, enum: [medical, fire, rescue]}
+        severity: {type: integer, minimum: 1, maximum: 5}
+        latitude: {type: number, minimum: -90, maximum: 90}
+        longitude: {type: number, minimum: -180, maximum: 180}
+        description: {type: string, minLength: 1}
+    Incident:
+      allOf:
+        - {$ref: '#/components/schemas/CreateIncident'}
+        - {type: object, required: [id, status, created_at, updated_at, version], properties: {id: {type: string, format: uuid}, status: {$ref: '#/components/schemas/Status'}, created_at: {type: string, format: date-time}, updated_at: {type: string, format: date-time}, version: {type: integer}}}
+  responses:
+    Error:
+      description: Consistent error envelope
+      content:
+        application/json:
+          schema: {type: object, properties: {error: {type: object, properties: {code: {type: string}, message: {type: string}, correlation_id: {type: string}}}}}
+

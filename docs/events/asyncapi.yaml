@@ -1,0 +1,62 @@
+asyncapi: 3.0.0
+info:
+  title: RescueFlow event catalog
+  version: 0.1.0
+  description: At-least-once events partitioned by incident aggregate ID.
+defaultContentType: application/json
+servers:
+  localKafka:
+    host: kafka:9092
+    protocol: kafka
+channels:
+  incidentCreated: {$ref: '#/components/channels/incidentCreated'}
+  incidentValidated: {$ref: '#/components/channels/incidentValidated'}
+  incidentStatusUpdated: {$ref: '#/components/channels/incidentStatusUpdated'}
+  assignmentRequested: {$ref: '#/components/channels/assignmentRequested'}
+  responderAssigned: {$ref: '#/components/channels/responderAssigned'}
+  responderRejected: {$ref: '#/components/channels/responderRejected'}
+  assignmentCancelled: {$ref: '#/components/channels/assignmentCancelled'}
+  resourceReservationRequested: {$ref: '#/components/channels/resourceReservationRequested'}
+  resourceReserved: {$ref: '#/components/channels/resourceReserved'}
+  resourceReservationFailed: {$ref: '#/components/channels/resourceReservationFailed'}
+  resourceReleased: {$ref: '#/components/channels/resourceReleased'}
+  notificationRequested: {$ref: '#/components/channels/notificationRequested'}
+  notificationSent: {$ref: '#/components/channels/notificationSent'}
+  notificationFailed: {$ref: '#/components/channels/notificationFailed'}
+components:
+  channels:
+    incidentCreated: {address: incident.created, messages: {event: {$ref: '#/components/messages/Event'}}}
+    incidentValidated: {address: incident.validated, messages: {event: {$ref: '#/components/messages/Event'}}}
+    incidentStatusUpdated: {address: incident.status.updated, messages: {event: {$ref: '#/components/messages/Event'}}}
+    assignmentRequested: {address: assignment.requested, messages: {event: {$ref: '#/components/messages/Event'}}}
+    responderAssigned: {address: responder.assigned, messages: {event: {$ref: '#/components/messages/Event'}}}
+    responderRejected: {address: responder.rejected, messages: {event: {$ref: '#/components/messages/Event'}}}
+    assignmentCancelled: {address: assignment.cancelled, messages: {event: {$ref: '#/components/messages/Event'}}}
+    resourceReservationRequested: {address: resource.reservation.requested, messages: {event: {$ref: '#/components/messages/Event'}}}
+    resourceReserved: {address: resource.reserved, messages: {event: {$ref: '#/components/messages/Event'}}}
+    resourceReservationFailed: {address: resource.reservation.failed, messages: {event: {$ref: '#/components/messages/Event'}}}
+    resourceReleased: {address: resource.released, messages: {event: {$ref: '#/components/messages/Event'}}}
+    notificationRequested: {address: notification.requested, messages: {event: {$ref: '#/components/messages/Event'}}}
+    notificationSent: {address: notification.sent, messages: {event: {$ref: '#/components/messages/Event'}}}
+    notificationFailed: {address: notification.failed, messages: {event: {$ref: '#/components/messages/Event'}}}
+  messages:
+    Event:
+      payload: {$ref: '#/components/schemas/Envelope'}
+      bindings:
+        kafka: {key: {type: string, description: incident_id}}
+  schemas:
+    Envelope:
+      type: object
+      required: [event_id, event_type, event_version, aggregate_id, correlation_id, producer, occurred_at, payload]
+      properties:
+        event_id: {type: string, format: uuid}
+        event_type: {type: string}
+        event_version: {type: integer, const: 1}
+        aggregate_id: {type: string, format: uuid}
+        correlation_id: {type: string}
+        causation_id: {type: string}
+        producer: {type: string}
+        occurred_at: {type: string, format: date-time}
+        traceparent: {type: string}
+        payload: {type: object, additionalProperties: true}
+
