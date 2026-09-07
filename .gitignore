@@ -1,0 +1,12 @@
+.env
+*.log
+.idea/
+.vscode/
+coverage.out
+bin/
+/rescueflow.exe
+.tools/
+.cache/
+web/node_modules/
+web/dist/
+infra/monitoring/grafana/data/
